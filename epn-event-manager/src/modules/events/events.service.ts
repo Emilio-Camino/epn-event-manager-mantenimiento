@@ -1,4 +1,10 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  HttpException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateEventDto } from './dto/create-event.dto';
@@ -9,6 +15,8 @@ import { QueryEventEntity } from '../../database/entities/query-event.entity';
 
 @Injectable()
 export class EventsService {
+  private readonly logger = new Logger(EventsService.name);
+
   constructor(
     @InjectRepository(CreateEventEntity)
     private readonly createRepo: Repository<CreateEventEntity>,
@@ -20,73 +28,104 @@ export class EventsService {
     private readonly queryRepo: Repository<QueryEventEntity>,
   ) {}
 
+  private sanitizeParam(value: string, name: string): string {
+    const clean = (value ?? '').trim();
+    if (!clean) {
+      throw new BadRequestException(
+        `El parámetro "${name}" no puede estar vacío.`,
+      );
+    }
+    if (clean.length > 60) {
+      throw new BadRequestException(
+        `El parámetro "${name}" no puede exceder 60 caracteres.`,
+      );
+    }
+    if (!/^[A-Za-z0-9_\-. ]+$/.test(clean)) {
+      throw new BadRequestException(
+        `El parámetro "${name}" contiene caracteres no permitidos.`,
+      );
+    }
+    return clean;
+  }
+
   async registerEvent(dto: CreateEventDto): Promise<{ ok: boolean }> {
     const action = (dto.action ?? '').toUpperCase();
     const payloadStr = JSON.stringify(dto.payload ?? {});
     // Fecha guardada en formato local, no UTC (debilidad intencional)
     const localDate = new Date().toLocaleString();
 
-    if (action === 'CREATE') {
-      const ev = this.createRepo.create({
-        source: dto.source,
-        entity: dto.entity,
-        action: dto.action,
-        title: dto.title,
-        description: dto.description,
-        payload: payloadStr,
-        recorded_at: localDate,
-      });
-      await this.createRepo.save(ev);
-      return { ok: true };
-    }
+    try {
+      if (action === 'CREATE') {
+        const ev = this.createRepo.create({
+          source: dto.source,
+          entity: dto.entity,
+          action: dto.action,
+          title: dto.title,
+          description: dto.description,
+          payload: payloadStr,
+          recorded_at: localDate,
+        });
+        await this.createRepo.save(ev);
+        return { ok: true };
+      }
 
-    if (action === 'UPDATE') {
-      const ev = this.updateRepo.create({
-        source: dto.source,
-        entity: dto.entity,
-        action: dto.action,
-        title: dto.title,
-        description: dto.description,
-        payload: payloadStr,
-        timestamp: localDate,
-      });
-      await this.updateRepo.save(ev);
-      return { ok: true };
-    }
+      if (action === 'UPDATE') {
+        const ev = this.updateRepo.create({
+          source: dto.source,
+          entity: dto.entity,
+          action: dto.action,
+          title: dto.title,
+          description: dto.description,
+          payload: payloadStr,
+          timestamp: localDate,
+        });
+        await this.updateRepo.save(ev);
+        return { ok: true };
+      }
 
-    if (action === 'DELETE') {
-      // se arregló: ahora se guarda el evento DELETE en la base de datos con su description
-      const ev = this.deleteRepo.create({
-        source: dto.source,
-        entity: dto.entity,
-        action: action,
-        title: dto.title,
-        description: dto.description,
-        payload: payloadStr,
-        createdAt: localDate,
-      });
-      await this.deleteRepo.save(ev);
-      return { ok: true };
-    }
+      if (action === 'DELETE') {
+        // se arregló: ahora se guarda el evento DELETE en la base de datos con su description
+        const ev = this.deleteRepo.create({
+          source: dto.source,
+          entity: dto.entity,
+          action: action,
+          title: dto.title,
+          description: dto.description,
+          payload: payloadStr,
+          createdAt: localDate,
+        });
+        await this.deleteRepo.save(ev);
+        return { ok: true };
+      }
 
-    if (action === 'QUERY') {
-      const ev = this.queryRepo.create({
-        source: dto.source,
-        entity: dto.entity,
-        action: dto.action,
-        title: dto.title,
-        description: dto.description,
-        payload: payloadStr,
-        event_date: localDate,
-      });
-      await this.queryRepo.save(ev);
-      return { ok: true };
-    }
+      if (action === 'QUERY') {
+        const ev = this.queryRepo.create({
+          source: dto.source,
+          entity: dto.entity,
+          action: dto.action,
+          title: dto.title,
+          description: dto.description,
+          payload: payloadStr,
+          event_date: localDate,
+        });
+        await this.queryRepo.save(ev);
+        return { ok: true };
+      }
 
-    // se arregló: se rechazan acciones inválidas con error 400 en lugar de devolver ok: false
-    throw new BadRequestException(
-      `Acción no soportada: "${dto.action}". Usa CREATE, UPDATE, DELETE o QUERY.`,
-    );
+      // se arregló: se rechazan acciones inválidas con error 400 en lugar de devolver ok: false
+      throw new BadRequestException(
+        `Acción no soportada: "${dto.action}". Usa CREATE, UPDATE, DELETE o QUERY.`,
+      );
+    } catch (err) {
+      if (err instanceof HttpException) {
+        throw err;
+      }
+      this.logger.error(
+        'Error al persistir evento',
+        err instanceof Error ? err.stack : String(err),
+      );
+      throw new InternalServerErrorException('No se pudo registrar el evento');
+    }
   }
 
   async findAll(): Promise<object[]> {
@@ -118,6 +157,7 @@ export class EventsService {
   }
 
   async findBySource(source: string): Promise<object[]> {
+    source = this.sanitizeParam(source, 'source');
     const creates = await this.createRepo.findBy({ source });
     const updates = await this.updateRepo.findBy({ source });
     const deletes = await this.deleteRepo.findBy({ source });
@@ -126,7 +166,8 @@ export class EventsService {
   }
 
   async findByEntity(entity: string): Promise<object[]> {
-    // Incidencia preventiva: parametro entity usado directamente sin sanitizar
+    // se arregló (preventivo): parámetro sanitizado y validado
+    entity = this.sanitizeParam(entity, 'entity');
     const creates = await this.createRepo.findBy({ entity });
     const updates = await this.updateRepo.findBy({ entity });
     const deletes = await this.deleteRepo.findBy({ entity });
