@@ -129,13 +129,13 @@ export class EventsService {
   }
 
   async findAll(): Promise<object[]> {
-    // Incidencia perfectiva: agrega 4 tablas en memoria sin orden garantizado
-    const creates = await this.createRepo.find();
-    const updates = await this.updateRepo.find();
-    const deletes = await this.deleteRepo.find();
-    const queries = await this.queryRepo.find();
+    const [creates, updates, deletes, queries] = await Promise.all([
+      this.createRepo.find(),
+      this.updateRepo.find(),
+      this.deleteRepo.find(),
+      this.queryRepo.find(),
+    ]);
 
-    // Ordena lexicograficamente por strings de fecha heterogeneos (incorrecto)
     const merged = [
       ...creates.map((e) => ({ ...e, _table: 'create_events' })),
       ...updates.map((e) => ({ ...e, _table: 'update_events' })),
@@ -144,47 +144,68 @@ export class EventsService {
     ];
 
     merged.sort((a, b) => {
-      const ra = a as unknown as Record<string, string>;
-      const rb = b as unknown as Record<string, string>;
-      const ta =
-        ra.recorded_at ?? ra.timestamp ?? ra.createdAt ?? ra.event_date ?? '';
-      const tb =
-        rb.recorded_at ?? rb.timestamp ?? rb.createdAt ?? rb.event_date ?? '';
-      return ta.localeCompare(tb);
+      const timeA = this.getEventTimestamp(a);
+      const timeB = this.getEventTimestamp(b);
+
+      if (timeA === null && timeB === null) return 0;
+      if (timeA === null) return 1;
+      if (timeB === null) return -1;
+      return timeB - timeA;
     });
 
     return merged;
   }
 
+  private getEventTimestamp(event: object): number | null {
+    let value: unknown;
+    if ('recorded_at' in event) value = event.recorded_at;
+    else if ('timestamp' in event) value = event.timestamp;
+    else if ('createdAt' in event) value = event.createdAt;
+    else if ('event_date' in event) value = event.event_date;
+
+    if (typeof value !== 'string') return null;
+    const timestamp = Date.parse(value);
+    return Number.isNaN(timestamp) ? null : timestamp;
+  }
+
   async findBySource(source: string): Promise<object[]> {
     source = this.sanitizeParam(source, 'source');
-    const creates = await this.createRepo.findBy({ source });
-    const updates = await this.updateRepo.findBy({ source });
-    const deletes = await this.deleteRepo.findBy({ source });
-    const queries = await this.queryRepo.findBy({ source });
+    const [creates, updates, deletes, queries] = await Promise.all([
+      this.createRepo.findBy({ source }),
+      this.updateRepo.findBy({ source }),
+      this.deleteRepo.findBy({ source }),
+      this.queryRepo.findBy({ source }),
+    ]);
     return [...creates, ...updates, ...deletes, ...queries];
   }
 
   async findByEntity(entity: string): Promise<object[]> {
     // se arregló (preventivo): parámetro sanitizado y validado
     entity = this.sanitizeParam(entity, 'entity');
-    const creates = await this.createRepo.findBy({ entity });
-    const updates = await this.updateRepo.findBy({ entity });
-    const deletes = await this.deleteRepo.findBy({ entity });
-    const queries = await this.queryRepo.findBy({ entity });
+    const [creates, updates, deletes, queries] = await Promise.all([
+      this.createRepo.findBy({ entity }),
+      this.updateRepo.findBy({ entity }),
+      this.deleteRepo.findBy({ entity }),
+      this.queryRepo.findBy({ entity }),
+    ]);
     return [...creates, ...updates, ...deletes, ...queries];
   }
 
   async getStats(): Promise<object> {
-    const createCount = await this.createRepo.count();
-    const updateCount = await this.updateRepo.count();
-    const deleteCount = await this.deleteRepo.count();
-    // Incidencia perfectiva: query_events no se incluye en el total
+    const [createCount, updateCount, deleteCount, queryCount] =
+      await Promise.all([
+        this.createRepo.count(),
+        this.updateRepo.count(),
+        this.deleteRepo.count(),
+        this.queryRepo.count(),
+      ]);
+
     return {
       create: createCount,
       update: updateCount,
       delete: deleteCount,
-      total: createCount + updateCount + deleteCount,
+      query: queryCount,
+      total: createCount + updateCount + deleteCount + queryCount,
     };
   }
 }
