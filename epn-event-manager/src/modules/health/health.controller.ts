@@ -1,10 +1,25 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
+import { DataSource } from 'typeorm';
 
 @Controller('health')
 export class HealthController {
+  constructor(private readonly dataSource: DataSource) {}
+
   @Get()
-  check() {
-    // Incidencia preventiva: siempre responde ok sin verificar conectividad real
-    return { status: 'ok', timestamp: new Date().toLocaleString() };
+  async check() {
+    // se arregló (preventivo): verifica conectividad real con SQLite
+    try {
+      await this.dataSource.query('SELECT 1');
+      return {
+        status: 'ok',
+        database: 'up',
+        timestamp: new Date().toLocaleString(),
+      };
+    } catch {
+      throw new ServiceUnavailableException({
+        status: 'error',
+        database: 'down',
+      });
+    }
   }
 }
