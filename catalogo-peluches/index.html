@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Peluches Mágicos — Catálogo</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <!-- HEADER -->
+    <header class="site-header">
+      <div class="header-inner">
+        <div class="brand">
+          <span class="brand-icon">🧸</span>
+          <div class="brand-text">
+            <h1>Peluches Mágicos</h1>
+            <p>Tu tienda de peluches con amor</p>
+          </div>
+        </div>
+        <nav class="nav-tabs">
+          <button class="tab-btn active" data-tab="catalogo">🏪 Catálogo</button>
+          <button class="tab-btn" data-tab="agregar">➕ Agregar</button>
+          <button class="tab-btn" data-tab="actividad">📋 Actividad</button>
+          <button class="tab-btn" data-tab="stats">📊 Estadísticas</button>
+        </nav>
+        <div class="api-status" id="apiStatus">
+          <span class="status-dot" id="statusDot"></span>
+          <span id="statusText">Conectando…</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="main-content">
+
+      <!-- ===== TAB: CATÁLOGO ===== -->
+      <section class="tab-panel active" id="tab-catalogo">
+        <div class="panel-header">
+          <h2>Catálogo de Peluches</h2>
+          <div class="filter-bar">
+            <input
+              type="text"
+              id="searchInput"
+              placeholder="🔍 Buscar por nombre o categoría…"
+              class="search-input"
+            />
+            <select id="filterCategory" class="filter-select">
+              <option value="">Todas las categorías</option>
+              <option value="Osos">Osos</option>
+              <option value="Unicornios">Unicornios</option>
+              <option value="Dinosaurios">Dinosaurios</option>
+              <option value="Gatos">Gatos</option>
+              <option value="Conejos">Conejos</option>
+              <option value="Pandas">Pandas</option>
+            </select>
+            <select id="filterSize" class="filter-select">
+              <option value="">Todos los tamaños</option>
+              <option value="Pequeño">Pequeño</option>
+              <option value="Mediano">Mediano</option>
+              <option value="Grande">Grande</option>
+              <option value="Gigante">Gigante</option>
+            </select>
+          </div>
+        </div>
+        <div class="catalog-grid" id="catalogGrid"></div>
+        <p class="empty-msg hidden" id="emptyMsg">No hay peluches que coincidan con tu búsqueda 🐾</p>
+      </section>
+
+      <!-- ===== TAB: AGREGAR ===== -->
+      <section class="tab-panel" id="tab-agregar">
+        <div class="form-wrapper">
+          <h2>Registrar nuevo peluche</h2>
+          <p class="form-hint">Este formulario envía un evento <code>CREATE</code> a la API del Event Manager.</p>
+
+          <form id="addPeluche" class="peluche-form" novalidate>
+            <div class="form-row two-col">
+              <div class="field-group">
+                <label for="f-nombre">Nombre del peluche <span class="req">*</span></label>
+                <input type="text" id="f-nombre" maxlength="60" placeholder="Ej: Osito Canela" required />
+                <span class="field-hint">Máx. 60 caracteres</span>
+              </div>
+              <div class="field-group">
+                <label for="f-categoria">Categoría <span class="req">*</span></label>
+                <select id="f-categoria" required>
+                  <option value="">— Selecciona —</option>
+                  <option>Osos</option>
+                  <option>Unicornios</option>
+                  <option>Dinosaurios</option>
+                  <option>Gatos</option>
+                  <option>Conejos</option>
+                  <option>Pandas</option>
+                  <option>Otro</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row two-col">
+              <div class="field-group">
+                <label for="f-precio">Precio (USD) <span class="req">*</span></label>
+                <input type="number" id="f-precio" min="0.01" step="0.01" placeholder="12.99" required />
+              </div>
+              <div class="field-group">
+                <label for="f-tamano">Tamaño</label>
+                <select id="f-tamano">
+                  <option value="">— Selecciona —</option>
+                  <option>Pequeño</option>
+                  <option>Mediano</option>
+                  <option>Grande</option>
+                  <option>Gigante</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row two-col">
+              <div class="field-group">
+                <label for="f-stock">Stock disponible</label>
+                <input type="number" id="f-stock" min="0" step="1" placeholder="10" />
+              </div>
+              <div class="field-group">
+                <label for="f-emoji">Emoji representativo</label>
+                <input type="text" id="f-emoji" maxlength="4" placeholder="🧸" />
+              </div>
+            </div>
+
+            <div class="field-group">
+              <label for="f-desc">Descripción</label>
+              <textarea id="f-desc" rows="3" maxlength="500" placeholder="Describe el peluche…"></textarea>
+              <span class="field-hint">Máx. 500 caracteres</span>
+            </div>
+
+            <div id="formMsg" class="form-message hidden"></div>
+
+            <div class="form-actions">
+              <button type="reset" class="btn btn-secondary">Limpiar</button>
+              <button type="submit" class="btn btn-primary" id="submitBtn">
+                <span class="btn-label">Registrar peluche</span>
+                <span class="btn-spinner hidden">⏳</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- ===== TAB: ACTIVIDAD ===== -->
+      <section class="tab-panel" id="tab-actividad">
+        <div class="panel-header">
+          <h2>Registro de Actividad</h2>
+          <div class="activity-controls">
+            <select id="activityFilter" class="filter-select">
+              <option value="">Todas las acciones</option>
+              <option value="CREATE">CREATE</option>
+              <option value="UPDATE">UPDATE</option>
+              <option value="DELETE">DELETE</option>
+              <option value="QUERY">QUERY</option>
+            </select>
+            <button class="btn btn-secondary small" id="refreshActivity">🔄 Actualizar</button>
+          </div>
+        </div>
+        <div id="activityList" class="activity-list">
+          <p class="loading-msg">Cargando actividad…</p>
+        </div>
+      </section>
+
+      <!-- ===== TAB: STATS ===== -->
+      <section class="tab-panel" id="tab-stats">
+        <div class="panel-header">
+          <h2>Estadísticas del Event Manager</h2>
+        </div>
+        <div class="stats-grid" id="statsGrid">
+          <p class="loading-msg">Cargando estadísticas…</p>
+        </div>
+        <div class="stats-chart-wrap">
+          <canvas id="statsChart" width="400" height="220"></canvas>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- MODAL DETALLE PELUCHE -->
+    <div class="modal-overlay hidden" id="modalOverlay">
+      <div class="modal-card" id="modalCard">
+        <button class="modal-close" id="modalClose">✕</button>
+        <div class="modal-emoji" id="modalEmoji"></div>
+        <h3 class="modal-title" id="modalTitle"></h3>
+        <div class="modal-badges" id="modalBadges"></div>
+        <p class="modal-desc" id="modalDesc"></p>
+        <div class="modal-meta" id="modalMeta"></div>
+        <button class="btn btn-primary full-width" id="modalRegisterQuery">
+          📋 Registrar consulta en la API
+        </button>
+      </div>
+    </div>
+
+    <!-- TOAST -->
+    <div class="toast hidden" id="toast"></div>
+
+    <footer class="site-footer">
+      <p>Peluches Mágicos © 2026 · Powered by <strong>epn-event-manager</strong></p>
+    </footer>
+
+    <script src="app.js"></script>
+  </body>
+</html>
