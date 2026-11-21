@@ -23,7 +23,7 @@ export class UpdateEventEntity {
   @Column({ type: 'text', nullable: true })
   payload: string;
 
-  // Inconsistencia intencional: timestamp guardado como texto local, no UTC
+  // Adaptativo: columna renombrada internamente; en las respuestas se expone como occurredAt (UTC ISO-8601)
   @Column({ nullable: true })
   timestamp: string;
 }

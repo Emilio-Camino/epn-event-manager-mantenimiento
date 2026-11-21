@@ -51,8 +51,8 @@ export class EventsService {
   async registerEvent(dto: CreateEventDto): Promise<{ ok: boolean }> {
     const action = (dto.action ?? '').toUpperCase();
     const payloadStr = JSON.stringify(dto.payload ?? {});
-    // Fecha guardada en formato local, no UTC (debilidad intencional)
-    const localDate = new Date().toLocaleString();
+    // Adaptativo: fecha en UTC ISO-8601 para interoperabilidad entre entornos y zonas horarias
+    const isoDate = new Date().toISOString();
 
     try {
       if (action === 'CREATE') {
@@ -63,7 +63,7 @@ export class EventsService {
           title: dto.title,
           description: dto.description,
           payload: payloadStr,
-          recorded_at: localDate,
+          recorded_at: isoDate,
         });
         await this.createRepo.save(ev);
         return { ok: true };
@@ -77,7 +77,7 @@ export class EventsService {
           title: dto.title,
           description: dto.description,
           payload: payloadStr,
-          timestamp: localDate,
+          timestamp: isoDate,
         });
         await this.updateRepo.save(ev);
         return { ok: true };
@@ -92,7 +92,7 @@ export class EventsService {
           title: dto.title,
           description: dto.description,
           payload: payloadStr,
-          createdAt: localDate,
+          createdAt: isoDate,
         });
         await this.deleteRepo.save(ev);
         return { ok: true };
@@ -106,7 +106,7 @@ export class EventsService {
           title: dto.title,
           description: dto.description,
           payload: payloadStr,
-          event_date: localDate,
+          event_date: isoDate,
         });
         await this.queryRepo.save(ev);
         return { ok: true };
@@ -137,10 +137,10 @@ export class EventsService {
     ]);
 
     const merged = [
-      ...creates.map((e) => ({ ...e, _table: 'create_events' })),
-      ...updates.map((e) => ({ ...e, _table: 'update_events' })),
-      ...deletes.map((e) => ({ ...e, _table: 'delete_events' })),
-      ...queries.map((e) => ({ ...e, _table: 'query_events' })),
+      ...creates.map((e) => ({ ...e, _table: 'create_events', occurredAt: e.recorded_at ?? null })),
+      ...updates.map((e) => ({ ...e, _table: 'update_events', occurredAt: e.timestamp ?? null })),
+      ...deletes.map((e) => ({ ...e, _table: 'delete_events', occurredAt: e.createdAt ?? null })),
+      ...queries.map((e) => ({ ...e, _table: 'query_events',  occurredAt: e.event_date ?? null })),
     ];
 
     merged.sort((a, b) => {
@@ -176,7 +176,12 @@ export class EventsService {
       this.deleteRepo.findBy({ source }),
       this.queryRepo.findBy({ source }),
     ]);
-    return [...creates, ...updates, ...deletes, ...queries];
+    return [
+      ...creates.map((e) => ({ ...e, occurredAt: e.recorded_at ?? null })),
+      ...updates.map((e) => ({ ...e, occurredAt: e.timestamp  ?? null })),
+      ...deletes.map((e) => ({ ...e, occurredAt: e.createdAt  ?? null })),
+      ...queries.map((e) => ({ ...e, occurredAt: e.event_date ?? null })),
+    ];
   }
 
   async findByEntity(entity: string): Promise<object[]> {
@@ -188,7 +193,12 @@ export class EventsService {
       this.deleteRepo.findBy({ entity }),
       this.queryRepo.findBy({ entity }),
     ]);
-    return [...creates, ...updates, ...deletes, ...queries];
+    return [
+      ...creates.map((e) => ({ ...e, occurredAt: e.recorded_at ?? null })),
+      ...updates.map((e) => ({ ...e, occurredAt: e.timestamp  ?? null })),
+      ...deletes.map((e) => ({ ...e, occurredAt: e.createdAt  ?? null })),
+      ...queries.map((e) => ({ ...e, occurredAt: e.event_date ?? null })),
+    ];
   }
 
   async getStats(): Promise<object> {
