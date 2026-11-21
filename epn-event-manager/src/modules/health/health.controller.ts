@@ -13,7 +13,8 @@ export class HealthController {
       return {
         status: 'ok',
         database: 'up',
-        timestamp: new Date().toLocaleString(),
+        // Adaptativo: timestamp en UTC ISO-8601 para interoperabilidad entre entornos
+        timestamp: new Date().toISOString(),
       };
     } catch {
       throw new ServiceUnavailableException({

@@ -6,6 +6,9 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+  // Adaptativo: habilitar CORS para clientes web externos (frontends en otros puertos/orígenes)
+  app.enableCors();
+
   // Preventivo: límite de tamaño de body y validación global de DTOs
   app.useBodyParser('json', { limit: '100kb' });
   app.useGlobalPipes(
